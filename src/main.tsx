@@ -14,7 +14,17 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     
   <React.StrictMode>
     <Authenticator>
-      <App />
+      {({ signOut, user, isLoading }) => (
+        isLoading ? (
+          <div>Loading...</div>
+        ) : (
+          <div>
+            <h1>Welcome, {user?.username}!</h1>
+            <App />
+            <button onClick={signOut}>Sign Out</button>
+          </div>
+        )
+      )}
     </Authenticator>
   </React.StrictMode>
 );
