@@ -12,7 +12,7 @@
   transition: filter 300ms;
 }
 .logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+  filter: drop-shadow(0 0 2em #2b35ffaa);
 }
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafbaa);
@@ -39,4 +39,35 @@
 
 .read-the-docs {
   color: #888;
+}
+
+/* Estilos para las barras de probabilidad */
+.probability-item {
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.probability-label {
+  width: 200px;
+  display: inline-block;
+}
+
+.probability-bar-container {
+  background-color: #ddd;
+  border-radius: 4px;
+  width: 200px;
+  height: 12px;
+  margin-right: 8px;
+  overflow: hidden;
+}
+
+.probability-bar {
+  background-color: orange;
+  height: 100%;
+}
+
+.probability-percentage {
+  width: 40px;
+  text-align: right;
 }
