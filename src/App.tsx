@@ -43,22 +43,32 @@ export const App = () => {
       // Convertir la imagen a base64
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const base64Image = reader.result?.split(',')[1];
+        // ---- INICIO DE LA MODIFICACIÓN CLAVE ----
+        // Aquí se asegura que reader.result sea un string antes de usar .split()
+        if (typeof reader.result === 'string') {
+          const base64Image = reader.result.split(',')[1];
 
-        // Enviar la petición a la API
-        const response = await fetch('https://8a8ya4p021.execute-api.us-east-2.amazonaws.com/predict', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ image: base64Image }), // Enviar la imagen en base64 dentro de un JSON
-        });
+          // Enviar la petición a la API
+          const response = await fetch('https://8a8ya4p021.execute-api.us-east-2.amazonaws.com/predict', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ image: base64Image }), // Enviar la imagen en base64 dentro de un JSON
+          });
 
-        if (!response.ok) {
-          throw new Error(`Error al procesar la imagen: ${response.status}`);
+          if (!response.ok) {
+            throw new Error(`Error al procesar la imagen: ${response.status}`);
+          }
+          const data = await response.json();
+          setResult(JSON.stringify(data, null, 2));
+        } else {
+          // Manejar el caso en que reader.result no es un string (ej. es null o ArrayBuffer)
+          console.error("El resultado del lector no es un string válido para la codificación Base64:", reader.result);
+          setResult('Error: El archivo seleccionado no pudo ser procesado para envío.');
         }
-        const data = await response.json();
-        setResult(JSON.stringify(data, null, 2));
+        // ---- FIN DE LA MODIFICACIÓN CLAVE ----
+        setLoading(false); // Mueve esto aquí para asegurar que siempre se detenga el loading
       };
       reader.onerror = () => {
         setResult('Error al leer la imagen.');
