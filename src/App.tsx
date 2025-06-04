@@ -5,13 +5,16 @@ export const App = () => {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const [geminiResponse, setGeminiResponse] = useState<string | null>(null); // Información adicional
   const [loading, setLoading] = useState(false);
+  const [loadingGemini, setLoadingGemini] = useState(false); // Nuevo estado para carga de Gemini
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
     setFile(selectedFile);
     setResult(null);
+    setGeminiResponse(null);
     if (selectedFile) {
       const reader = new FileReader();
       reader.onloadend = () => setPreview(reader.result as string);
@@ -25,6 +28,7 @@ export const App = () => {
     setFile(null);
     setPreview(null);
     setResult(null);
+    setGeminiResponse(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -33,6 +37,7 @@ export const App = () => {
   const handleProcess = async () => {
     setLoading(true);
     setResult(null);
+    setGeminiResponse(null);
     try {
       if (!file) {
         alert('Por favor, selecciona una imagen.');
@@ -43,32 +48,38 @@ export const App = () => {
       // Convertir la imagen a base64
       const reader = new FileReader();
       reader.onloadend = async () => {
-        // ---- INICIO DE LA MODIFICACIÓN CLAVE ----
-        // Aquí se asegura que reader.result sea un string antes de usar .split()
         if (typeof reader.result === 'string') {
           const base64Image = reader.result.split(',')[1];
 
-          // Enviar la petición a la API
-          const response = await fetch('https://8a8ya4p021.execute-api.us-east-2.amazonaws.com/predict', {
+          // Enviar la petición a la API de predicción
+          const response = await fetch('https://8a8ya4p021.execute-api.us-east-2.amazonaws.com/predict',  {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ image: base64Image }), // Enviar la imagen en base64 dentro de un JSON
+            body: JSON.stringify({ image: base64Image }),
           });
 
           if (!response.ok) {
             throw new Error(`Error al procesar la imagen: ${response.status}`);
           }
+
           const data = await response.json();
           setResult(JSON.stringify(data, null, 2));
+
+          // Llamar a Gemini para información adicional
+          const tumorType = data.class_name;
+
+          setLoadingGemini(true); // Activamos el loading de Gemini
+          const geminiInfo = await getGeminiInfo(tumorType);
+          setGeminiResponse(geminiInfo);
+          setLoadingGemini(false); // Desactivamos el loading
+
         } else {
-          // Manejar el caso en que reader.result no es un string (ej. es null o ArrayBuffer)
-          console.error("El resultado del lector no es un string válido para la codificación Base64:", reader.result);
-          setResult('Error: El archivo seleccionado no pudo ser procesado para envío.');
+          console.error("El resultado del lector no es un string válido:", reader.result);
+          setResult('Error: El archivo seleccionado no pudo ser procesado.');
         }
-        // ---- FIN DE LA MODIFICACIÓN CLAVE ----
-        setLoading(false); // Mueve esto aquí para asegurar que siempre se detenga el loading
+        setLoading(false);
       };
       reader.onerror = () => {
         setResult('Error al leer la imagen.');
@@ -82,9 +93,41 @@ export const App = () => {
     }
   };
 
-  const CLASS_NAMES = ['adenocarcinoma', 'large.cell.carcinoma', 'normal', 'notumor', 'squamous.cell.carcinoma'];
+  // Función para obtener información de Gemini
+  const getGeminiInfo = async (tumorType: string) => {
+    try {
+      const response = await fetch('https://z26g9oiw2j.execute-api.us-east-2.amazonaws.com/prod/gemini',  {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tumorType }),
+      });
 
-  // Función para mostrar las probabilidades
+      if (!response.ok) {
+        throw new Error(`Error al obtener información de Gemini: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      let info = 'No se recibió información adicional.';
+
+      try {
+        const body = JSON.parse(data.body);
+        info = body.result || 'Campo "result" no encontrado.';
+      } catch (e) {
+        info = 'Error al procesar la respuesta de la API.';
+      }
+
+      return info;
+    } catch (error) {
+      console.error("Error al obtener información de Gemini:", error);
+      return 'No se pudo obtener información adicional.';
+    }
+  };
+
+  const CLASS_NAMES = ['Adenocarcinoma', 'Carcinoma de células grandes', 'Normal', 'Sin tumor', 'Carcinoma de células escamosas'];
+
   const renderProbabilities = () => {
     try {
       if (!result) return null;
@@ -118,8 +161,6 @@ export const App = () => {
 
   return (
     <div>
-      
-      
 
       {/* Contenido principal */}
       <div
@@ -198,7 +239,7 @@ export const App = () => {
             </button>
           </div>
         </div>
-        {/* Columna derecha: texto/resultados */}
+        {/* Columna derecha: resultados */}
         <div style={{ width: 550, minHeight: 450, background: '#fff', padding: 24, borderRadius: 8, boxSizing: 'border-box', border: '1px solid #eee' }}>
           <h2>Resultados</h2>
           {loading && <p>Procesando imagen...</p>}
@@ -210,6 +251,26 @@ export const App = () => {
           )}
         </div>
       </div>
+
+      {/* Información adicional con estado de carga */}
+      <div style={{
+        width: 1000,
+        margin: '32px auto',
+        background: '#fff',
+        padding: 24,
+        borderRadius: 8,
+        boxSizing: 'border-box',
+        border: '1px solid #eee',
+        textAlign: "left"
+      }}>
+        <h3>Información Adicional</h3>
+        {loadingGemini ? (
+          <p>🔄 Cargando información adicional...</p>
+        ) : geminiResponse ? (
+          <p style={{ whiteSpace: 'pre-line' }}>{geminiResponse}</p>
+        ) : null}
+      </div>
+
     </div>
   );
 };
